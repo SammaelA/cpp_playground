@@ -1,0 +1,89 @@
+diff --git a/tree.cpp b/tree.cpp
+index ca28ee9..d07d33b 100644
+--- a/tree.cpp
++++ b/tree.cpp
+@@ -28,7 +28,7 @@ int main() {
+     assert(node->GetRight()->GetParent() == node);
+ 
+     auto leaf = TNode<int>::CreateLeaf(4);
+-    auto node3 = TNode<int>::Fork(0, node.get(), leaf.get());
++    auto node3 = TNode<int>::Fork(0, node, leaf);
+ 
+     assert(node3->GetValue() == 0);
+     assert(node3->GetLeft()->GetValue() == 1);
+diff --git a/tree.h b/tree.h
+index 57d37a5..f2b6ba8 100644
+--- a/tree.h
++++ b/tree.h
+@@ -5,10 +5,12 @@
+ namespace NBinTree {
+ 
+ template <typename T>
+-class TNode {
++class TNode : public std::enable_shared_from_this<TNode<T>>{
+ public:
+     using TNodePtr = std::shared_ptr<TNode<T>>;
++    using TNodeWPtr = std::weak_ptr<TNode<T>>;
+     using TNodeConstPtr = std::shared_ptr<const TNode<T>>;
++    using TNodeConstWPtr = std::weak_ptr<const TNode<T>>;
+ 
+     bool HasLeft() const {
+         return Left;
+@@ -47,33 +49,33 @@ public:
+     }
+ 
+     TNodePtr GetParent() {
+-        return Parent;
++        return Parent.lock();
+     }
+ 
+     TNodeConstPtr GetParent() const {
+-        return Parent;
++        return Parent.lock();
+     }
+ 
+     static TNodePtr CreateLeaf(T value) {
+-        return std::make_shared<TNode>(value);
++        return std::shared_ptr<TNode>(new TNode(value));
+     }
+ 
+-    static TNodePtr Fork(T value, TNode* left, TNode* right) {
+-        TNodePtr ptr = std::make_shared<TNode>(value, left, right);
++    static TNodePtr Fork(T value, TNodePtr left, TNodePtr right) {
++        TNodePtr ptr = std::shared_ptr<TNode>(new TNode(value, left, right));
+         SetParent(ptr->GetLeft(), ptr);
+         SetParent(ptr->GetRight(), ptr);
+         return ptr;
+     }
+ 
+     TNodePtr ReplaceLeft(TNodePtr left) {
+-        SetParent(left, TNodePtr(this));
++        SetParent(left, this->shared_from_this());
+         SetParent(Left, nullptr);
+         std::swap(left, Left);
+         return left;
+     }
+ 
+     TNodePtr ReplaceRight(TNodePtr right) {
+-        SetParent(right, TNodePtr(this));
++        SetParent(right, this->shared_from_this());
+         SetParent(Right, nullptr);
+         std::swap(right, Right);
+         return right;
+@@ -99,14 +101,14 @@ private:
+     T Value;
+     TNodePtr Left = nullptr;
+     TNodePtr Right = nullptr;
+-    TNodePtr Parent = nullptr;
++    TNodeWPtr Parent;
+ 
+     TNode(T value)
+         : Value(value)
+     {
+     }
+ 
+-    TNode(T value, TNode* left, TNode* right)
++    TNode(T value, TNodePtr left, TNodePtr right)
+         : Value(value)
+         , Left(left)
+         , Right(right)
