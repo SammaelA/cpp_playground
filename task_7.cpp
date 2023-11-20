@@ -50,13 +50,15 @@ public:
   }
 
   inline T *Get() { return this->ptr;}
-  inline void Release()
+  inline T *Release()
   {
+    T *ret_ptr = this->ptr;
     if (this->ptr)
     {
       this->ptr->intrusive_ptr_count--;
       this->ptr = nullptr;
     }
+    return ret_ptr;
   }
   inline void Reset(TIntrusivePtr<T> new_ptr = TIntrusivePtr<T>())
   {
