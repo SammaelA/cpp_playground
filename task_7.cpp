@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 
 template <typename T>
 class alignas(8) TBasePtr
@@ -32,9 +33,14 @@ public:
   }
   ~TIntrusivePtr()
   {
-    Release();
+    if (this->ptr)
+    {
+      this->ptr->intrusive_ptr_count--;
+      if (this->ptr->intrusive_ptr_count == 0)
+        delete this->ptr;
+    }
   }
-  
+
   inline int UseCount() const
   {
     if (this->ptr)
@@ -49,15 +55,19 @@ public:
     if (this->ptr)
     {
       this->ptr->intrusive_ptr_count--;
-      if (this->ptr->intrusive_ptr_count == 0)
-        delete this->ptr;
+      this->ptr = nullptr;
     }
   }
   inline void Reset(TIntrusivePtr<T> new_ptr = TIntrusivePtr<T>())
   {
     if (this->ptr != new_ptr.ptr)
     {
-      Release();
+      if (this->ptr)
+      {
+        this->ptr->intrusive_ptr_count--;
+        if (this->ptr->intrusive_ptr_count == 0)
+          delete this->ptr;
+      }
       this->ptr = new_ptr.ptr;
       if (new_ptr.ptr)
         new_ptr.ptr->intrusive_ptr_count++;
@@ -80,7 +90,7 @@ public:
   template<typename T, class... Args >
   TIntrusivePtr<T> MakeIntrusive( Args&&... args )
   {
-    return TIntrusivePtr<T>(new T(args...));
+    return TIntrusivePtr<T>(new T(std::forward<Args>(args)...));
   }
 
 template <typename T>

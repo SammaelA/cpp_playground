@@ -5,10 +5,24 @@
 
 class TMyException : public std::exception
 {
-public: 
-    virtual TMyException& operator<<(const std::string& _message)
+public:
+
+    template <typename T>
+    TMyException& operator<<(const T& val)
     {
-        message = "TMyException:"+_message;
+        message += std::to_string(val);
+        return *this;      
+    }
+
+    TMyException& operator<<(const char *_message)
+    {
+        message += _message;
+        return *this;
+    }
+
+    TMyException& operator<<(const std::string& _message)
+    {
+        message += _message;
         return *this;
     }
     const char* what() const noexcept override {return message.c_str();}
@@ -18,22 +32,11 @@ protected:
 
 class FirstMyException : public TMyException
 {
-public: 
-    FirstMyException& operator<<(const std::string& _message) override
-    {
-        message = "FirstMyException:"+_message;
-        return *this;
-    }
 };
  
 class SecondMyException : public TMyException
 {
 public: 
-    SecondMyException& operator<<(const std::string& _message) override
-    {
-        message = "SecondMyException:"+_message;
-        return *this;
-    }
 };
 
 double safe_log(double base, double val)
@@ -41,13 +44,13 @@ double safe_log(double base, double val)
   if (base < 0)
   {
     FirstMyException e;
-    e << "Unable to take logarithm with base<=0";
+    e << "Logaritm base is "<<base<<", expected base > 0";
     throw e;
   }
   else if (val < 0)
   {
     SecondMyException e;
-    e << "Unable to take logarithm from x<=0";
+    e << "Logaritm x is "<<val<<", expected x > 0";
     throw e;  
   }
   return log(val)/log(base);
