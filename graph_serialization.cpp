@@ -6,6 +6,8 @@
 #include <map>
 #include <algorithm>
 #include <queue>
+#include <math.h>
+#include <set>
 
 #pragma pack(push, 1)
 struct Edge
@@ -85,6 +87,11 @@ struct HuffmanCode
     std::cout<<s<<"\n";
   }
 
+  std::vector<bool> encode_all(std::vector<uint32_t> &all_values)
+  {
+
+  }
+
   HuffmanCode(std::vector<uint32_t> &all_values)
   {
     std::map<uint32_t, int> counts;
@@ -118,13 +125,18 @@ struct HuffmanCode
     traverse(root, {});
 
     int prev_size = 8*all_values.size()*sizeof(uint32_t);
-    int table_size = 8*counts.size()*sizeof(uint32_t);
     int codes_size = 0;
+    int code_max_bits = 0;
     for (auto &n : nodes)
     {
       if (n.left == nullptr && n.right == nullptr)
-        codes_size += n.code.size();
+      {
+        codes_size += n.code.size()*n.freq;
+        code_max_bits = std::max(code_max_bits, (int)n.code.size());
+      }
     }
+    int table_size = counts.size()*(8*sizeof(uint32_t) + code_max_bits);
+    std::cout<<"max bit per symbol "<<code_max_bits<<"\n";
     std::cout<<"expected compression ratio "<<(float)prev_size/(table_size+codes_size)<<"\n";
     std::cout<<"prev size "<<prev_size<<", cur size "<<table_size<<"+"<<codes_size<<"\n";
   }
@@ -164,6 +176,15 @@ std::vector<Edge> get_edges(const char *input_path)
   return edges;
 }
 
+void write_edges(const char *output_path, const std::vector<Edge> &edges)
+{
+  std::ofstream out(output_path);
+  assert(out.is_open());
+  for (const Edge &edge : edges)
+    out << edge.v0 <<"\t"<< edge.v1 <<"\t"<< (uint32_t)edge.weight<<"\n";
+  out.close();
+}
+
 void serialize(const char *input_path, const char *output_path)
 {
   auto edges = get_edges(input_path);
@@ -178,21 +199,6 @@ void serialize(const char *input_path, const char *output_path)
   std::cout<<"total "<< (float)byte_size/size << " bytes/edge\n";
 
   out.close();
-  /*
-  std::map<uint32_t, int> counts;
-  for (auto &edge : edges)
-  {
-    counts[edge.v0]++;
-    counts[edge.v1]++;
-  }
-  std::vector<std::pair<uint32_t, int>> top_counts;
-  top_counts.reserve(counts.size());
-  for (auto &p : counts)
-    top_counts.push_back(p);
-  std::sort(top_counts.begin(), top_counts.end(), [&](std::pair<uint32_t, int>& a, std::pair<uint32_t, int>& b) -> bool {return a.second > b.second;});
-  */
-  //for (auto &p : top_counts)
-  //  std::cout<<"cnt["<<p.first<<"]="<<p.second<<"\n";
 }
 
 void deserialize(const char *input_path, const char *output_path)
@@ -207,12 +213,7 @@ void deserialize(const char *input_path, const char *output_path)
   in.read(reinterpret_cast<char*>(edges.data()), sizeof(Edge)*edges.size());
   in.close();
 
-  std::ofstream out(output_path);
-  assert(out.is_open());
-  for (Edge &edge : edges)
-    out << edge.v0 <<"\t"<< edge.v1 <<"\t"<< (uint32_t)edge.weight<<"\n";
-  out.close();
-  in.close();
+  write_edges(output_path, edges);
 }
 
 void serialize_2(const char *input_path, const char *output_path)
@@ -282,12 +283,7 @@ void deserialize_2(const char *input_path, const char *output_path)
   //in.read(reinterpret_cast<char*>(edges.data()), sizeof(Edge)*edges.size());
   in.close();
 
-  std::ofstream out(output_path);
-  assert(out.is_open());
-  for (Edge &edge : edges)
-    out << edge.v0 <<"\t"<< edge.v1 <<"\t"<< (uint32_t)edge.weight<<"\n";
-  out.close();
-  in.close();
+  write_edges(output_path, edges);
 }
 
 struct Bitfield
@@ -326,6 +322,121 @@ void verify(const char *file1, const char *file2)
     std::cout<<"Verify: FAIL\n";
 }
 
+void analyze(const char *input_path)
+{
+  auto edges = get_edges(input_path);
+  size_t size = edges.size();
+  std::map<uint32_t, int> counts;
+  for (auto &edge : edges)
+  {
+    counts[edge.v0]++;
+    counts[edge.v1]++;
+  }
+  std::vector<std::pair<uint32_t, int>> top_counts;
+  top_counts.reserve(counts.size());
+  for (auto &p : counts)
+    top_counts.push_back(p);
+  std::sort(top_counts.begin(), top_counts.end(), [&](std::pair<uint32_t, int>& a, std::pair<uint32_t, int>& b) -> bool {return a.second > b.second;});
+  
+  //for (auto &p : top_counts)
+  //  std::cout<<"cnt["<<p.first<<"]="<<p.second<<"\n";
+  
+  std::map<int, int> v_powers;
+  for (auto &p : top_counts)
+    v_powers[p.second]++;
+  
+  std::cout<<"density "<<(float)size/counts.size()<<"\n";
+
+  for (auto &p : v_powers)
+    std::cout<<"power["<<p.first<<"]="<<p.second<<"\n";
+}
+
+double rand(double from, double to)
+{
+  return from + ((double)rand()/RAND_MAX)*(to-from);
+}
+void generate_graph(int size, const char *output_path, int min_power = 5, double power_distr = log(6)/log(2))
+{
+  struct Vertex
+  {
+    uint32_t id;
+    int max_edges;
+    int left_edges;
+  };
+
+  constexpr int MAX_POWER = 2048;
+  double chances[MAX_POWER];
+  for (int i=0;i<MAX_POWER;i++)
+  {
+    double v = 1/pow(min_power+i, power_distr);
+    chances[i] = (i==0 ? 0 : chances[i-1])+v;
+  }
+
+  std::vector<Vertex> vertices(size);
+  std::set<uint32_t> occupied_ids;
+  int total_edges = 0;
+  for (auto &v : vertices)
+  {
+    //create unique id
+    uint32_t id = 0;
+    while (occupied_ids.find(id) != occupied_ids.end())
+      id = 2u*((uint32_t)rand()) + rand()%2;
+    v.id = id;
+    occupied_ids.emplace(id);
+
+    //choose number of edges
+    double rnd = rand(0, chances[MAX_POWER-1]);
+    int i = 0;
+    while (rnd>=chances[i] && i < MAX_POWER-1)
+      i++;
+    v.max_edges = min_power+i;
+    v.left_edges = v.max_edges;
+    total_edges += v.max_edges;
+    std::cout<<"vertex "<<v.id<<" created\n";
+  }
+
+  if (total_edges%2)
+  {
+    vertices[0].max_edges++;
+    vertices[0].left_edges++;
+    total_edges++;
+  }
+  total_edges /= 2;
+
+  //create edges by finding two random connections
+  std::vector<Edge> edges(total_edges);
+  int connections_left = 2*total_edges;
+  for (auto &e : edges)
+  {
+    int c_1 = rand() % connections_left;
+    int i1 = 0;
+    while (c_1>vertices[i1].left_edges)
+    {
+      c_1 -=vertices[i1].left_edges;
+      i1++;
+    }
+    vertices[i1].left_edges--;
+    connections_left--;
+
+    int c_2 = rand() % connections_left;
+    int i2 = 0;
+    while (c_2>vertices[i2].left_edges)
+    {
+      c_2 -=vertices[i2].left_edges;
+      i2++;
+    }
+    vertices[i2].left_edges--;
+    connections_left--;
+
+    e.v0 = vertices[i1].id;
+    e.v1 = vertices[i2].id;
+    e.weight = rand()%256;
+    std::cout<<connections_left<<" edge "<<e.v0<<" "<<e.v1<<" created\n";
+  }
+
+  write_edges(output_path, edges);
+}
+
 int main(int argc, char **argv)
 {
   //std::vector<uint32_t> uvec = {7,7,7,7,77,77,77,777,777,666,666,8888};
@@ -345,5 +456,15 @@ int main(int argc, char **argv)
   {
     assert(argc == 4);
     verify(argv[2], argv[3]);
+  }
+  else if (strcmp(argv[1],"-a") == 0)
+  {
+    assert(argc == 3);
+    analyze(argv[2]);
+  }
+  else if (strcmp(argv[1],"-g") == 0)
+  {
+    assert(argc == 3);
+    generate_graph(1000000, argv[2]);    
   }
 }
