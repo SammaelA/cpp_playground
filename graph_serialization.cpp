@@ -159,9 +159,9 @@ struct HuffmanCode
       }
     }
     int table_size = counts.size()*(8*sizeof(uint32_t) + code_max_bits);
-    std::cout<<"max bit per symbol "<<code_max_bits<<"\n";
-    std::cout<<"expected compression ratio "<<(float)prev_size/(table_size+codes_size)<<"\n";
-    std::cout<<"prev size "<<prev_size<<", cur size "<<table_size<<"+"<<codes_size<<"\n";
+    //std::cout<<"max bit per symbol "<<code_max_bits<<"\n";
+    //std::cout<<"expected compression ratio "<<(float)prev_size/(table_size+codes_size)<<"\n";
+    //std::cout<<"prev size "<<prev_size<<", cur size "<<table_size<<"+"<<codes_size<<"\n";
 
     //encode table and message size
     std::vector<bool> full_code;
@@ -362,9 +362,9 @@ void serialize(const char *input_path, const char *output_path)
   out.write(reinterpret_cast<char*>(&size), sizeof(size_t));
   out.write(reinterpret_cast<char*>(edges.data()), sizeof(Edge)*edges.size());
 
-  std::cout<<size<<" edges\n";
+  //std::cout<<size<<" edges\n";
   int byte_size = sizeof(size_t) + size*sizeof(Edge);
-  std::cout<<"total "<< (float)byte_size/size << " bytes/edge\n";
+  //std::cout<<"total "<< (float)byte_size/size << " bytes/edge\n";
 
   out.close();
 }
@@ -417,8 +417,8 @@ void serialize_2(const char *input_path, const char *output_path)
   //out.write(reinterpret_cast<char*>(&size), sizeof(size_t));
   //out.write(reinterpret_cast<char*>(edges.data()), sizeof(Edge)*edges.size());
 
-  std::cout<<size<<" edges\n";
-  std::cout<<"total "<< (float)byte_size/size << " bytes/edge\n";
+  //std::cout<<size<<" edges\n";
+  //std::cout<<"total "<< (float)byte_size/size << " bytes/edge\n";
 
   out.close();
 }
@@ -518,9 +518,9 @@ void serialize_3(const char *input_path, const char *output_path)
   auto bits = Hcode.encode_all(all_values);
   write_bits_to_binary(bits, output_path);
 
-  std::cout<<size<<" edges\n";
-  std::cout<<"initially "<< (float)byte_size/size << " bytes/edge\n";
-  std::cout<<"after encoding "<< (float)bits.size()/(8*size) << " bytes/edge\n";
+  //std::cout<<size<<" edges\n";
+  //std::cout<<"initially "<< (float)byte_size/size << " bytes/edge\n";
+  //std::cout<<"after encoding "<< (float)bits.size()/(8*size) << " bytes/edge\n";
 }
 
 void deserialize_3(const char *input_path, const char *output_path)
